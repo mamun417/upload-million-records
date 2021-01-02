@@ -12,21 +12,47 @@ class SalesController extends Controller
         return view('upload-file');
     }
 
-    public function store(Request $request)
+    public function upload(Request $request)
     {
         if ($request->has('mycsv')) {
-            $data = array_map('str_getcsv', file($request->mycsv));
-            $header = $data[0];
-            unset($data[0]);
 
-            foreach ($data as $value) {
-                $sale_data = array_combine($header, $value);
-                Sale::create($sale_data);
+            $data = file($request->mycsv);
+
+            // chunking file
+            $chunks = array_chunk($data, 1000);
+
+            foreach ($chunks as $key => $chunk) {
+                $name = "/temp{$key}.csv";
+                $path = resource_path('temp');
+                file_put_contents($path . $name, $chunk);
             }
 
-            return $header;
+            return 'Upload done';
         }
 
         return 'File not found';
+    }
+
+    public function store()
+    {
+        $path = resource_path('temp');
+        $files = glob("$path/*.csv");
+
+        $header = [];
+        foreach ($files as $key => $file) {
+            $data = array_map('str_getcsv', file($file));
+
+            if ($key === 0) {
+                $header = $data[0];
+                unset($data[0]);
+            }
+
+            foreach ($data as $sale) {
+                $sale_data = array_combine($header, $sale);
+                Sale::create($sale_data);
+            }
+        }
+
+        return 'stored';
     }
 }
